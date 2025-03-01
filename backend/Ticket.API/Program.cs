@@ -1,6 +1,32 @@
+using Ticket.API.Hubs;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+
+// Add SignalR with Redis backplane
+builder.Services.AddSignalR()
+    .AddStackExchangeRedis("localhost:6379", options =>
+    {
+        options.Configuration.ChannelPrefix = "SignalR";
+    });
+
+
+#region ForConfiguring CORS
+
+builder.Services.AddCors(opt =>
+{
+    opt.AddPolicy("reactApp", builder =>
+    {
+        builder.WithOrigins("http://localhost:3000")
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
+});
+
+#endregion
+
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -18,8 +44,13 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-app.UseAuthorization();
+////For configuring CORS
+app.UseCors("reactApp");
 
 app.MapControllers();
+
+app.UseAuthorization();
+
+app.MapHub<TicketHub>("/ticketHub");
 
 app.Run();
