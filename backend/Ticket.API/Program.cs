@@ -2,9 +2,15 @@ using Ticket.API.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
 
-// Add SignalR with Redis backplane
+//// configure Distributed Cache with Redis
+builder.Services.AddStackExchangeRedisCache(opt =>
+{
+    opt.Configuration = builder.Configuration.GetConnectionString("Redis");
+});
+
+
+//// configure SignalR with Redis backplane
 builder.Services.AddSignalR()
     .AddStackExchangeRedis("localhost:6379", options =>
     {

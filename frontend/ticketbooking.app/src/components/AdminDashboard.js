@@ -1,38 +1,35 @@
-import React, { useEffect, useState } from "react";
-import * as signalR from "@microsoft/signalr";
+import React, { useState, useEffect } from "react";
+import signalRService from "../services/signalr.service";
 
 const AdminDashboard = () => {
   const [tickets, setTickets] = useState([]);
 
   useEffect(() => {
-      const connection = new signalR.HubConnectionBuilder()
-          .withUrl("https://localhost:7093/ticketHub")
-          .withAutomaticReconnect()
-          .build();
+    const connection = signalRService.getConnection();
 
-      connection.start()
-          .then(() => console.log("Connected to SignalR"))
-          .catch(err => console.error("Connection failed:", err));
+    const handleTicketUpdate = (ticketId, user, status, companyId) => {
+      setTickets(prevTickets => [...prevTickets, { ticketId, user, status, companyId }]);
+    };
 
-      connection.on("ReceiveTicketUpdate", (ticketId, user, status) => {
-          setTickets(prevTickets => [...prevTickets, { ticketId, user, status }]);
-      });
+    connection.on("ReceiveTicketUpdate", handleTicketUpdate);
 
-      return () => {
-          connection.stop();
-      };
+    return () => {
+      connection.off("ReceiveTicketUpdate", handleTicketUpdate);
+    };
   }, []);
 
   return (
-      <div>
-          <h2>Admin Dashboard - Ticket Updates</h2>
-          <ul>
-              {tickets.map((ticket, index) => (
-                  <li key={index}>{ticket.user} booked Ticket ID: {ticket.ticketId} - Status: {ticket.status}</li>
-              ))}
-          </ul>
-      </div>
+    <div>
+      <h2>Admin Dashboard - Ticket Updates</h2>
+      <ul>
+        {tickets.map((ticket, index) => (
+          <li key={index}>
+            {ticket.user} booked Ticket ID: {ticket.ticketId} - Status: {ticket.status} (Company ID: {ticket.companyId})
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 };
 
-export default AdminDashboard
+export default AdminDashboard;
