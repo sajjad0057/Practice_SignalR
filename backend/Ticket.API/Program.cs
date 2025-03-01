@@ -1,35 +1,54 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using StackExchange.Redis;
 using Ticket.API.Data;
 using Ticket.API.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
 
-//// Adding Configurations for using Sqlite with EF Core
+// Configuration for Sqlite with EF Core
 builder.Services.AddDbContext<TicketContext>(opts =>
     opts.UseSqlite(builder.Configuration.GetConnectionString("Database")));
 
 
-//// configure Distributed Cache with Redis
-builder.Services.AddStackExchangeRedisCache(opt =>
+// Redis connection string from configuration (appsettings.json)
+var redisConnectionStr = builder.Configuration.GetConnectionString("Redis")!;
+
+
+
+// Configure Redis ConnectionMultiplexer
+/*
+The IConnectionMultiplexer is registered as a singleton service, which is more efficient for Redis since
+it uses connection pooling internally. Reusing the same connection acrossservices like SignalR and 
+distributed cache improves performance and ensures optimal resource usage
+*/
+var redisConnection = ConnectionMultiplexer.Connect(redisConnectionStr);
+builder.Services.AddSingleton<IConnectionMultiplexer>(redisConnection);
+
+
+
+// Configure Distributed Cache with Redis
+builder.Services.AddStackExchangeRedisCache(options =>
 {
-    opt.Configuration = builder.Configuration.GetConnectionString("Redis");
+    options.Configuration = redisConnectionStr;  // Reuse the connection string
 });
 
 
-//// configure SignalR with Redis backplane
+
+// Configure SignalR with Redis Backplane
 builder.Services.AddSignalR()
-    .AddStackExchangeRedis("localhost:6379", options =>
+    .AddStackExchangeRedis(redisConnectionStr, options =>
     {
-        options.Configuration.ChannelPrefix = "SignalR";
+        options.Configuration.ChannelPrefix = RedisChannel.Literal("SignalR");
     });
 
 
-#region ForConfiguring CORS
 
-builder.Services.AddCors(opt =>
+// CORS configuration for React App
+builder.Services.AddCors(options =>
 {
-    opt.AddPolicy("reactApp", builder =>
+    options.AddPolicy("reactApp", builder =>
     {
         builder.WithOrigins("http://localhost:3000")
             .AllowAnyHeader()
@@ -38,17 +57,23 @@ builder.Services.AddCors(opt =>
     });
 });
 
-#endregion
 
 
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+
+
+
+// Add Swagger for API documentation (Development only)
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+
+
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
+
+
+// Use Swagger in Development
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -56,14 +81,18 @@ if (app.Environment.IsDevelopment())
 }
 
 
-////For configuring CORS
+
+// Configure CORS
 app.UseCors("reactApp");
 
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
 
+
+// Map SignalR Hub
 app.MapHub<TicketHub>("/ticketHub");
+
 
 app.MapControllers();
 
