@@ -1,6 +1,13 @@
+using Microsoft.EntityFrameworkCore;
+using Ticket.API.Data;
 using Ticket.API.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
+
+
+//// Adding Configurations for using Sqlite with EF Core
+builder.Services.AddDbContext<TicketContext>(opts =>
+    opts.UseSqlite(builder.Configuration.GetConnectionString("Database")));
 
 
 //// configure Distributed Cache with Redis
@@ -48,15 +55,17 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
 
 ////For configuring CORS
 app.UseCors("reactApp");
 
-app.MapControllers();
+app.UseHttpsRedirection();
 
 app.UseAuthorization();
 
 app.MapHub<TicketHub>("/ticketHub");
+
+app.MapControllers();
+
 
 app.Run();
