@@ -9,7 +9,7 @@ class SignalRService {
     if (!SignalRService.instance) {
       this.connection = new HubConnectionBuilder()
         .withUrl("http://localhost:5000/ticketHub", {
-          accessTokenFactory: () => token // Attach token to the request
+          withCredentials: false, //  Disable credentials support for bipass CORS related issue when set allow all origin in backend server.
         })
         .configureLogging(LogLevel.Information)
         .withAutomaticReconnect()
